@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Рождественское кино мира - Интерактивная карта</title>
+    
+    <!-- Подключение стилей -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background: #212842;
+            color: #F0E7D5;
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        /* Фоновая анимация снега */
+        .snow-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        .snowflake {
+            position: absolute;
+            color: rgba(240, 231, 213, 0.8);
+            font-size: 1em;
+            animation: fall linear infinite;
+        }
+
+        @keyframes fall {
+            0% {
+                transform: translateY(-100vh) rotate(0deg);
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(100vh) rotate(360deg);
+                opacity: 0;
+            }
+        }
+
+        /* Заголовок */
+        .header {
+            position: relative;
+            z-index: 10;
+            text-align: center;
+            padding: 2rem 1rem;
+            background: rgba(33, 40, 66, 0.8);
+            backdrop-filter: blur(10px);
+        }
+
+        .header h1 {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(45deg, #F0E7D5, #c0c5ce);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        /* Информация о дне */
+        .day-info {
+            background: rgba(33, 40, 66, 0.9);
+            padding: 15px;
+            border-radius: 10px;
+            margin: 1rem auto;
+            max-width: 90vw;
+            text-align: center;
+            border: 1px solid #F0E7D5;
+        }
+
+        .day-info h2 {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+            color: #F0E7D5;
+        }
+
+        .day-info .countdown {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 1.1rem;
+            color: #c0c5ce;
+        }
+
+        /* Контейнер карты */
+        .map-container {
+            position: relative;
+            height: 70vh;
+            margin: 2rem;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            z-index: 5;
+        }
+
+        #map {
+            height: 100%;
+            width: 100%;
+        }
+
+        /* Кастомные стили для карты */
+        .leaflet-container {
+            background: #212842;
+        }
+
+        .country-marker {
+            color: #F0E7D5;
+            border: 2px solid #F0E7D5;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 600;
+            font-size: 14px;
+            box-shadow: 0 4px 12px rgba(139, 21, 56, 0.4);
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .marker-available {
+            background: #8b1538;
+        }
+
+
+        .marker-unavailable {
+            background: #4a5568;
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .marker-today {
+            background: #d4af37;
+            animation: pulse 2s infinite;
+        }
+
+        .marker-next {
+            background: #2d3748;
+            opacity: 0.7;
+        }
+
+        .country-marker:hover {
+            transform: scale(1.2);
+            box-shadow: 0 6px 20px rgba(139, 21, 56, 0.6);
+        }
+
+        .marker-available:hover {
+            background: #a91b47;
+        }
+
+        .marker-next:hover {
+            background: #4a5568;
+        }
+
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(212, 175, 55, 0.7);
+            }
+            70% {
+                box-shadow: 0 0 0 10px rgba(212, 175, 55, 0);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(212, 175, 55, 0);
+            }
+        }
+
+        /* Всплывающие окна */
+        .custom-popup {
+            background: rgba(33, 40, 66, 0.95);
+            border: 2px solid #F0E7D5;
+            border-radius: 15px;
+            padding: 20px;
+            max-width: 300px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .custom-popup h3 {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 1.4rem;
+            margin-bottom: 10px;
+            color: #F0E7D5;
+        }
+
+        .custom-popup p {
+            font-family: 'Montserrat', sans-serif;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+            line-height: 1.4;
+	    color: #F0E7D5;
+        }
+
+        .custom-popup .day-number {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 0.8rem;
+            color: #F0E7D5;
+            font-weight: 600;
+        }
+
+        .custom-popup .year {
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 600;
+            color: #F0E7D5;
+        }
+
+        .custom-popup .region {
+            font-family: 'Montserrat', sans-serif;
+            font-style: italic;
+            
+        }
+
+        .custom-popup .link {
+            display: inline-block;
+            margin-top: 10px;
+            padding: 8px 15px;
+            background: #8b1538;
+            color: #F0E7D5;
+            text-decoration: none;
+            border-radius: 5px;
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .custom-popup .link:hover {
+            background: #a91b47;
+            transform: translateY(-2px);
+        }
+
+        .film-image {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 8px;
+            margin: 10px 0;
+            border: 1px solid #F0E7D5;
+        }
+
+        /* Легенда */
+        .legend {
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            background: rgba(33, 40, 66, 0.9);
+            padding: 20px;
+            border-radius: 15px;
+            border: 1px solid #F0E7D5;
+            z-index: 1000;
+            max-width: 250px;
+        }
+
+        .legend h4 {
+            font-family: 'Montserrat', sans-serif;
+            margin-bottom: 15px;
+            color: #F0E7D5;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            font-size: 0.9rem;
+        }
+
+        .legend-marker {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #F0E7D5;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+
+        .legend-available {
+            background: #8b1538;
+        }
+
+        .legend-today {
+            background: #d4af37;
+        }
+
+        .legend-next {
+            background: #2d3748;
+        }
+
+        .legend-unavailable {
+            background: #4a5568;
+        }
+
+        /* Адаптивность */
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .map-container {
+                height: 60vh;
+                margin: 1rem;
+            }
+            
+            .legend {
+                position: relative;
+                bottom: auto;
+                right: auto;
+                margin: 1rem;
+                max-width: none;
+            }
+        }
+
+        /* Анимации */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .header {
+            animation: fadeInUp 1s ease-out;
+        }
+
+        .map-container {
+            animation: fadeInUp 1s ease-out 0.3s both;
+        }
+    </style>
+</head>
+<body>
+    <!-- Фоновая анимация снега -->
+    <div class="snow-container" id="snowContainer"></div>
+
+    <!-- Заголовок -->
+    <header class="header">
+        <h1>Рождественское и альтернативное ему кино</h1>
+        <p>Путешествие по странам через волшебство кинематографа. Открывайте по одному фильму в день</p>
+    </header>
+
+    <!-- Информация о текущем дне -->
+    <div class="day-info" id="dayInfo">
+        <h2 id="currentDayTitle">День 1</h2>
+        <div class="countdown" id="countdown"></div>
+    </div>
+
+    <!-- Контейнер карты -->
+    <div class="map-container">
+        <div id="map"></div>
+        
+        <!-- Легенда -->
+        <div class="legend">
+            <h4><i class="fas fa-film"></i> Легенда</h4>
+            <div class="legend-item">
+                <div class="legend-marker legend-today"></div>
+                <span>Сегодняшний фильм</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-marker legend-available"></div>
+                <span>Доступные фильмы</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-marker legend-next"></div>
+                <span>Следующий фильм</span>
+            </div>
+        
+            <p style="font-size: 0.8rem; margin-top: 10px; opacity: 0.8;">
+                Новый фильм открывается каждый день
+            </p>
+        </div>
+    </div>
+
+    <!-- Подключение скриптов -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    
+    <script>
+        // Данные о фильмах и странах
+        const filmsData = [
+            { id: 1, title: "Серебряные коньки", year: 2020, country: "Россия", region: "Европа/Азия", coords: [61.5240, 105.3188], image: "https://cdn.profile.ru/wp-content/uploads/2020/09/Serebryanye-konki.jpg", link: "https://www.kinopoisk.ru/film/1225587/" },
+            { id: 2, title: "Рождество в Нигерии", year: 2021, country: "Нигерия", region: "Африка", coords: [9.0820, 8.6753], image: "https://occ-0-1432-784.1.nflxso.net/dnm/api/v6/9pS1daC2n6UGc3dUogvWIPMR_OU/AAAABU5BP4vsvps8IBSZwpjyj_NTzChOn5FaDRlOK2U6WfaU3x6v8ZvYZKRNubieH14PICFS9QNFIujNNaZrwL3JnWXXwgI9PMCdaUb45V9K_3YwsJS4Rd01i6XktA.jpg?r=4a2", link: "https://kinopoisk.ru/film/4760057" },
+            { id: 3, title: "Три орешка для Золушки", year: 1973, country: "Чехия", region: "Европа", coords: [49.8175, 15.4730], image: "https://avatars.mds.yandex.net/i?id=4ee88ac8f95c478c74ae5a8a6c77affb_l-7014426-images-thumbs&n=13", link: "https://www.kinopoisk.ru/film/79446/" },
+            { id: 4, title: "Опять Рождество!", year: 2020, country: "Бразилия", region: "Южная Америка", coords: [-14.2350, -51.9253], image: "https://cadelta.ru/images/opyat-rozhdestvo-2020-1.jpg", link: "https://www.kinopoisk.ru/film/2041816/" },
+            { id: 5, title: "Рождественская ночь в Барселоне", year: 2015, country: "Испания", region: "Европа", coords: [40.4637, -3.7492], image: "https://avatars.mds.yandex.net/i?id=ec1ea8f40b0c01b4f2d35fd0046f146d_l-5219049-images-thumbs&n=13", link: "https://www.kinopoisk.ru/film/842209/" },
+            { id: 6, title: "Всё началось, когда я тебя встретил", year: 2013, country: "Япония", region: "Азия", coords: [36.2048, 138.2529], image: "https://avatars.mds.yandex.net/i?id=defbe4312e3f84f87aa243c02ef62bd9_l-5869551-images-thumbs&n=13", link: "https://www.kinopoisk.ru/film/777478/" },
+            { id: 7, title: "Необыкновенная история на Рождество", year: 2017, country: "Великобритания", region: "Европа", coords: [55.3781, -3.4360], image: "https://avatars.mds.yandex.net/i?id=7cae243867154654c4ebd6c7a01e5213_l-6917174-images-thumbs&n=13", link: "https://www.kinopoisk.ru/film/1017967/" },
+            { id: 8, title: "Пасторела", year: 2011, country: "Мексика", region: "Северная Америка", coords: [23.6345, -102.5528], image: "https://avatars.mds.yandex.net/i?id=7f3a7f32c978206f1d0bd57b0f0d6057_l-4034573-images-thumbs&n=13", link: "https://www.kinopoisk.ru/film/603583/" },
+            { id: 9, title: "Рождественская история", year: 2007, country: "Финляндия", region: "Европа", coords: [61.9241, 25.7482], image: "https://img14.rl0.ru/afisha/e1043x590p0x0f1909x1080q85i/s2.afisha.ru/mediastorage/49/8b/d1db557b356d4ef5ba4d8d2a8b49.jpg", link: "https://kinopoisk.ru/film/317463" },
+            { id: 10, title: "С доставкой на дом", year: 2005, country: "Индия", region: "Азия", coords: [20.5937, 78.9629], image: "https://avatars.mds.yandex.net/i?id=1cc36bad2f065dadab8151f695670b1e58b4b153-4836432-images-thumbs&n=13", link: "https://www.kinopoisk.ru/film/178254/" },
+            { id: 11, title: "Мой дядя Антуан", year: 1971, country: "Канада", region: "Северная Америка", coords: [56.1304, -106.3468], image: "https://avatars.mds.yandex.net/i?id=5396a36b1bc3db40243421a92f72d9bf_l-5859023-images-thumbs&n=13", link: "https://www.kinopoisk.ru/film/62536/" },
+            { id: 12, title: "Крампус", year: 2015, country: "Австрия", region: "Европа", coords: [47.5162, 14.5501], image: "https://avatars.mds.yandex.net/i?id=b2930d17f029263b3b40afea08f6c8f7_l-11353407-images-thumbs&n=13", link: "https://www.kinopoisk.ru/film/843104/" },
+            { id: 13, title: "Путешествие к Рождественской звезде", year: 2012, country: "Норвегия", region: "Европа", coords: [60.4720, 8.4689], image: "https://avatars.mds.yandex.net/i?id=90a3d73a8cb507d164b61f4c97347abf_l-10653027-images-thumbs&n=13", link: "https://www.kinopoisk.ru/film/619080/" },
+            { id: 14, title: "Загорелое Рождество", year: 2020, country: "Австралия", region: "Океания", coords: [-25.2744, 133.7751], image: "http://avatars.mds.yandex.net/get-vh/5235207/2a00000192a049366e3fcc9a3703ea93654b/800x450", link: "https://www.kinopoisk.ru/film/1446289/" },
+            { id: 15, title: "Вечера на хуторе близ Диканьки", year: 1961, country: "Украина", region: "Европа", coords: [48.3794, 31.1656], image: "https://static.mk.ru/upload/entities/2023/07/06/15/articles/facebookPicture/73/9d/96/9e/2141cc4a691ef351c5c08994a774e548.jpg", link: "https://www.kinopoisk.ru/film/45694/" },
+            { id: 16, title: "Санта и компания", year: 2017, country: "Франция", region: "Европа", coords: [46.6034, 1.8883], image: "https://avatars.mds.yandex.net/i?id=8f220073fc2db04afa3c5ad0347968ac_l-5229416-images-thumbs&n=13", link: "https://www.kinopoisk.ru/film/1049040/" },
+            { id: 17, title: "Дух Рождества (Воин Маджонга)", year: 2002, country: "Гонконг", region: "Азия", coords: [22.3193, 114.1694], image: "https://avatars.mds.yandex.net/i?id=8d96b1bffc057a6bb8d033a7af4cdbad_l-5879395-images-thumbs&n=13", link: "https://www.kinopoisk.ru/film/198691/" },
+            { id: 18, title: "Счастливые", year: 2000, country: "Аргентина", region: "Южная Америка", coords: [-38.4161, -63.6167], image: "https://i0.wp.com/www.themoviedb.org/t/p/w780/xCY6K8HLcL9ATF4CgDjxoLb7BHD.jpg", link: "https://www.kinopoisk.ru/film/105419/" },
+            { id: 19, title: "Колдунья приходит ночью", year: 2018, country: "Италия", region: "Европа", coords: [41.8719, 12.5674], image: "https://media.senscritique.com/media/000020064609/1200/la_sorciere_de_noel.jpg", link: "https://www.kinopoisk.ru/film/1168978/" },
+            { id: 20, title: "С новым годом!", year: 2021, country: "Южная Корея", region: "Азия", coords: [35.9078, 127.7669], image: "https://avatars.mds.yandex.net/i?id=8348ddd5eabba1111749733596ddeda1_l-7742796-images-thumbs&n=13", link: "https://www.kinopoisk.ru/film/4428428/" },
+            { id: 21, title: "Киви Рождество", year: 2017, country: "Новая Зеландия", region: "Океания", coords: [-40.9006, 174.8860], image: "https://images.mubicdn.net/images/film/248576/cache-483419-1745496501/image-w1280.jpg", link: "https://www.kinopoisk.ru/film/1072684/" },
+            { id: 22, title: "Тихая ночь", year: 2017, country: "Польша", region: "Европа", coords: [51.9194, 19.1451], image: "https://i.okcdn.ru/videoPreview?id=5835335731785&type=32&idx=14&tkn=iqADi9KF0px6-2H5NtiWtQiazCs&fn=external_8", link: "https://www.kinopoisk.ru/film/1062946/" },
+            { id: 23, title: "Фанни и Александр", year: 1982, country: "Швеция", region: "Европа", coords: [60.1282, 18.6435], image: "https://img-ng.rl0.ru/afisha/e1043x590p0x0f1909x1080q85i/s5.afisha.ru/mediastorage/46/1a/03cc5640096c43ee8eb7f6161a46.jpg", link: "https://www.kinopoisk.ru/film/8400/" },
+            { id: 24, title: "То самое время года", year: 2018, country: "Дания", region: "Европа", coords: [55.1326, 10.2913], image: "https://s.yimg.com/ny/api/res/1.2/JXmJ2XLML6RtBAaDtSeeBg--/YXBwaWQ9aGlnaGxhbmRlcjt3PTEyMDA7aD02MDA7Y2Y9d2VicA--/https://media.zenfs.com/en-US/homerun/variety.com/ac8d6d7207097dd7fd1f89be1a320b52", link: "https://www.kinopoisk.ru/film/1152991/" },
+            { id: 25, title: "Мандарин", year: 2015, country: "США", region: "Северная Америка", coords: [34.0902, -118.7129], image: "https://www.nyfa.edu/wp-content/uploads/2023/03/transactors.jpg", link: "https://www.kinopoisk.ru/film/844923/" },
+            { id: 26, title: "Когда Санта упал на Землю", year: 2011, country: "Германия", region: "Европа", coords: [51.1657, 10.4515], image: "https://avatars.mds.yandex.net/get-kinopoisk-image/1704946/5ea8055f-e699-48f0-ab11-130994e8a29b/1920x", link: "https://www.kinopoisk.ru/film/575747/" },
+            { id: 27, title: "Семейство Клаус", year: 2020, country: "Бельгия", region: "Европа", coords: [50.6326, 4.2913], image: "https://img-s-msn-com.akamaized.net/tenant/amp/entityid/AA1EdJY6.img?w=768&h=512&m=6&x=376&y=130&s=81&d=81", link: "https://www.kinopoisk.ru/film/1427745/" },
+            { id: 28, title: "Нереальная любовь", year: 2007, country: "Нидерланды", region: "Европа", coords: [52.1326, 5.2913], image: "https://m.media-amazon.com/images/M/MV5BMGQ4NmU2MWYtZDU3ZC00MjE1LTgxNjQtYWQ3Yjc2MDRjMDc3XkEyXkFqcGc@._V1_.jpg", link: "https://www.kinopoisk.ru/film/232370/" },
+            { id: 29, title: "Эхо", year: 2019, country: "Исландия", region: "Европа", coords: [64.9631, -19.0208], image: "https://avatars.mds.yandex.net/i?id=ae665ca2031d79aada80d3a6783c3cca-2374603-images-thumbs&n=13", link: "https://www.kinopoisk.ru/film/1226814/" },
+            { id: 30, title: "Рождественский переполох", year: 1993, country: "Латвия", region: "Европа", coords: [56.8794, 24.1656], image: "https://avatars.mds.yandex.net/i?id=41736d0b01f4906deb7a90290ae38e68bdd0324d-7014426-images-thumbs&n=13", link: "https://www.kinopoisk.ru/film/452786/" },
+            { id: 31, title: "Старый Новый Год", year: 2011, country: "Интернациональный", region: "США", coords: [39.8283, -98.5795], image: "https://media.cnn.com/api/v1/images/stellar/prod/111208061823-new-year-s-eve-zac-efron-michelle-pfeiffer.jpg?q=x_145,y_131,h_857,w_1523,c_crop/h_833,w_1480", link: "https://www.kinopoisk.ru/film/497755/" }
+        ];
+
+        // Настройки календаря
+        const TOTAL_DAYS = filmsData.length;
+        let markers = [];
+        let currentDay = 1;
+
+        // Функция для расчета текущего дня (основана на текущей дате)
+        function calculateCurrentDay() {
+    // Установите здесь дату начала вручную в формате 'ГГГГ-ММ-ДД'
+    const START_DATE = new Date('2025-12-01'); // ← Измените эту дату на нужную
+    
+    const now = new Date();
+    
+    // Сбрасываем время для точного расчета дней
+    const start = new Date(START_DATE);
+    start.setHours(0, 0, 0, 0);
+    const today = new Date(now);
+    today.setHours(0, 0, 0, 0);
+    
+    const timeDiff = today - start;
+    const daysDiff = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+    
+    if (daysDiff < 0) {
+        return 0; // Еще не началось
+    } else if (daysDiff >= TOTAL_DAYS) {
+        return TOTAL_DAYS; // Все дни прошли
+    } else {
+        return daysDiff + 1; // +1 потому что первый день - день 1
+    }
+}
+
+        // Функция для обновления информации о дне
+        function updateDayInfo() {
+            const dayInfoElement = document.getElementById('dayInfo');
+            const currentDayTitle = document.getElementById('currentDayTitle');
+            const countdownElement = document.getElementById('countdown');
+            
+            const now = new Date();
+            const today = now.toLocaleDateString('ru-RU');
+            
+            if (currentDay > TOTAL_DAYS) {
+                currentDayTitle.textContent = 'Все фильмы открыты!';
+                countdownElement.textContent = `Сегодня: ${today}`;
+                dayInfoElement.style.display = 'block';
+            } else {
+                currentDayTitle.textContent = `День ${currentDay}`;
+                countdownElement.textContent = `Сегодня: ${today}`;
+                dayInfoElement.style.display = 'block';
+            }
+        }
+
+        // Инициализация карты
+        let map = L.map('map', {
+            center: [30, 0],
+            zoom: 2,
+            minZoom: 1,
+            maxZoom: 7,
+            worldCopyJump: true
+        });
+
+        // Добавление тайловой подложки с темной темой
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+            subdomains: 'abcd',
+            maxZoom: 19
+        }).addTo(map);
+
+        // Функция для создания кастомного маркера
+        function createCustomMarker(film, day) {
+            const isAvailable = day <= currentDay;
+            const isToday = day === currentDay;
+            const isNextDay = day === currentDay + 1;
+            
+            // Определяем класс маркера
+            let markerClass;
+            if (isToday) {
+                markerClass = 'marker-today';
+            } else if (isAvailable) {
+                markerClass = 'marker-available';
+            } else if (isNextDay) {
+                markerClass = 'marker-next';
+            } else {
+                // Для всех остальных будущих дней не создаем маркер
+                return null;
+            }
+            
+            const markerHtml = `
+                <div class="country-marker ${markerClass}" data-film-id="${film.id}" data-day="${day}">
+                    ${film.id}
+                </div>
+            `;
+            
+            const icon = L.divIcon({
+                html: markerHtml,
+                className: 'custom-div-icon',
+                iconSize: [30, 30],
+                iconAnchor: [15, 15]
+            });
+
+            const marker = L.marker(film.coords, { icon: icon })
+                .addTo(map);
+
+            // Добавляем popup только для доступных маркеров
+            if (isAvailable) {
+                marker.bindPopup(`
+                    <div class="custom-popup">
+                        <div class="day-number">День ${day}</div>
+                        <h3>${film.title}</h3>
+                        <p class="year">${film.year} год</p>
+                        <p><strong>Страна:</strong> ${film.country}</p>
+                        <p class="region">${film.region}</p>
+                        <img src="${film.image}" alt="${film.title}" class="film-image">
+                        ${film.link ? `<a href="${film.link}" target="_blank" class="link">Подробнее о фильме</a>` : ''}
+                    </div>
+                `, {
+                    maxWidth: 300,
+                    className: 'custom-popup-container'
+                });
+
+                // Добавление анимации при наведении
+                marker.on('mouseover', function() {
+                    const markerElement = marker.getElement().querySelector('.country-marker');
+                    if (markerElement && isAvailable) {
+                        markerElement.style.transform = 'scale(1.2)';
+                        if (isToday) {
+                            markerElement.style.background = '#e6c44c';
+                        } else {
+                            markerElement.style.background = '#a91b47';
+                        }
+                    }
+                });
+
+                marker.on('mouseout', function() {
+                    const markerElement = marker.getElement().querySelector('.country-marker');
+                    if (markerElement && isAvailable) {
+                        markerElement.style.transform = 'scale(1)';
+                        if (isToday) {
+                            markerElement.style.background = '#d4af37';
+                        } else {
+                            markerElement.style.background = '#8b1538';
+                        }
+                    }
+                });
+            } else if (isNextDay) {
+                // Для следующего дня добавляем простой popup без деталей
+                marker.bindPopup(`
+                    <div class="custom-popup">
+                        <h3>Скоро откроется</h3>
+                        <p>Этот фильм станет доступен 1 декабря!</p>
+                        <p><strong>День ${day}</strong></p>
+                    </div>
+                `, {
+                    maxWidth: 250,
+                    className: 'custom-popup-container'
+                });
+
+                marker.on('mouseover', function() {
+                    const markerElement = marker.getElement().querySelector('.country-marker');
+                    if (markerElement) {
+                        markerElement.style.transform = 'scale(1.2)';
+                        markerElement.style.background = '#4a5568';
+                    }
+                });
+
+                marker.on('mouseout', function() {
+                    const markerElement = marker.getElement().querySelector('.country-marker');
+                    if (markerElement) {
+                        markerElement.style.transform = 'scale(1)';
+                        markerElement.style.background = '#2d3748';
+                    }
+                });
+            }
+
+            return marker;
+        }
+
+        // Функция для фокусировки на последнем открытом дне
+        function focusOnLastAvailableDay() {
+            if (currentDay > 0 && currentDay <= TOTAL_DAYS) {
+                const lastAvailableFilm = filmsData[currentDay - 1];
+                if (lastAvailableFilm) {
+                    map.setView(lastAvailableFilm.coords, 4);
+                    
+                    // Открываем popup для сегодняшнего фильма
+                    setTimeout(() => {
+                        if (markers[currentDay - 1]) {
+                            markers[currentDay - 1].openPopup();
+                        }
+                    }, 1000);
+                }
+            }
+        }
+
+        // Инициализация маркеров
+        function initializeMarkers() {
+            // Очищаем существующие маркеры
+            markers.forEach(marker => {
+                if (marker) {
+                    map.removeLayer(marker);
+                }
+            });
+            markers = [];
+            
+            // Создаем маркеры только для доступных дней и следующего дня
+            filmsData.forEach((film, index) => {
+                const day = index + 1;
+                const marker = createCustomMarker(film, day);
+                markers.push(marker);
+            });
+        }
+
+        // Функция для создания снега
+        function createSnow() {
+            const snowContainer = document.getElementById('snowContainer');
+            
+            setInterval(() => {
+                const snowflake = document.createElement('div');
+                snowflake.className = 'snowflake';
+                snowflake.innerHTML = ['❄', '❅', '❆'][Math.floor(Math.random() * 3)];
+                snowflake.style.left = Math.random() * 100 + '%';
+                snowflake.style.animationDuration = Math.random() * 3 + 2 + 's';
+                snowflake.style.opacity = Math.random();
+                snowflake.style.fontSize = Math.random() * 10 + 10 + 'px';
+                
+                snowContainer.appendChild(snowflake);
+                
+                setTimeout(() => {
+                    snowflake.remove();
+                }, 5000);
+            }, 200);
+        }
+
+        // Основная функция инициализации
+        function initialize() {
+            currentDay = calculateCurrentDay();
+            updateDayInfo();
+            initializeMarkers();
+            createSnow();
+            
+            // Фокусируемся на последнем открытом дне после небольшой задержки
+            setTimeout(focusOnLastAvailableDay, 1500);
+
+            // Анимация при загрузке страницы
+            anime({
+                targets: '.header h1',
+                opacity: [0, 1],
+                translateY: [-50, 0],
+                duration: 1000,
+                easing: 'easeOutExpo'
+            });
+
+            anime({
+                targets: '.header p',
+                opacity: [0, 1],
+                translateY: [-30, 0],
+                duration: 1000,
+                delay: 300,
+                easing: 'easeOutExpo'
+            });
+
+            anime({
+                targets: '.map-container',
+                opacity: [0, 1],
+                scale: [0.9, 1],
+                duration: 1000,
+                delay: 600,
+                easing: 'easeOutExpo'
+            });
+        }
+
+        // Ограничение области просмотра карты
+        map.setMaxBounds([[-90, -180], [90, 180]]);
+
+        // Обработка изменения размера окна
+        window.addEventListener('resize', function() {
+            map.invalidateSize();
+        });
+
+        // Запуск инициализации
+        initialize();
+    </script>
+</body>
+</html>
