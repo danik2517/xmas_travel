@@ -441,30 +441,41 @@
         let markers = [];
         let currentDay = 1;
 
+        // Функция для получения даты фильма
+        function getFilmDate(dayNumber) {
+            const START_DATE = new Date('2025-12-01'); // Дата начала
+            const filmDate = new Date(START_DATE);
+            filmDate.setDate(START_DATE.getDate() + (dayNumber - 1));
+            
+            // Форматируем дату в русском формате
+            const options = { day: 'numeric', month: 'long' };
+            return filmDate.toLocaleDateString('ru-RU', options);
+        }
+
         // Функция для расчета текущего дня (основана на текущей дате)
         function calculateCurrentDay() {
-    // Установите здесь дату начала вручную в формате 'ГГГГ-ММ-ДД'
-    const START_DATE = new Date('2025-12-01'); // ← Измените эту дату на нужную
-    
-    const now = new Date();
-    
-    // Сбрасываем время для точного расчета дней
-    const start = new Date(START_DATE);
-    start.setHours(0, 0, 0, 0);
-    const today = new Date(now);
-    today.setHours(0, 0, 0, 0);
-    
-    const timeDiff = today - start;
-    const daysDiff = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
-    
-    if (daysDiff < 0) {
-        return 0; // Еще не началось
-    } else if (daysDiff >= TOTAL_DAYS) {
-        return TOTAL_DAYS; // Все дни прошли
-    } else {
-        return daysDiff + 1; // +1 потому что первый день - день 1
-    }
-}
+            // Установите здесь дату начала вручную в формате 'ГГГГ-ММ-ДД'
+            const START_DATE = new Date('2025-12-01'); // ← Измените эту дату на нужную
+            
+            const now = new Date();
+            
+            // Сбрасываем время для точного расчета дней
+            const start = new Date(START_DATE);
+            start.setHours(0, 0, 0, 0);
+            const today = new Date(now);
+            today.setHours(0, 0, 0, 0);
+            
+            const timeDiff = today - start;
+            const daysDiff = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+            
+            if (daysDiff < 0) {
+                return 0; // Еще не началось
+            } else if (daysDiff >= TOTAL_DAYS) {
+                return TOTAL_DAYS; // Все дни прошли
+            } else {
+                return daysDiff + 1; // +1 потому что первый день - день 1
+            }
+        }
 
         // Функция для обновления информации о дне
         function updateDayInfo() {
@@ -579,11 +590,12 @@
                     }
                 });
             } else if (isNextDay) {
-                // Для следующего дня добавляем простой popup без деталей
+                // Для следующего дня добавляем popup с правильной датой
+                const nextFilmDate = getFilmDate(day);
                 marker.bindPopup(`
                     <div class="custom-popup">
                         <h3>Скоро откроется</h3>
-                        <p>Этот фильм станет доступен 1 декабря!</p>
+                        <p>Этот фильм станет доступен <strong>${nextFilmDate}</strong></p>
                         <p><strong>День ${day}</strong></p>
                     </div>
                 `, {
